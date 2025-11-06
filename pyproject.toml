@@ -19,7 +19,8 @@ classifiers = [
 dependencies = [
     "numpy",
     "pandas",
-    "rdkit"
+    "rdkit",
+    "inquirer"
 ]
 
 [project.urls]
