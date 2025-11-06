@@ -1,7 +1,7 @@
 # src/hw_toolkit/docking/__init__.py
 
 from . import (
-    anaylsis,
+    analysis,
     box_calculator,
     my_docking,
     my_docking_multi,
@@ -10,7 +10,7 @@ from . import (
 )
 
 __all__ = [
-    "anaylsis",
+    "analysis",
     "box_calculator",
     "my_docking",
     "my_docking_multi",

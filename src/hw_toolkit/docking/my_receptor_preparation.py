@@ -6,7 +6,7 @@ import subprocess
 import random
 from rdkit import Chem
 
-from box_calculator import DockingBoxCalculator
+from .box_calculator import DockingBoxCalculator
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='protein preparation for docking.')

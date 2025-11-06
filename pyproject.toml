@@ -20,7 +20,8 @@ dependencies = [
     "numpy",
     "pandas",
     "rdkit",
-    "inquirer"
+    "inquirer",
+    "tqdm"
 ]
 
 [project.urls]
