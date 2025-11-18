@@ -325,7 +325,6 @@ class DockingBoxCalculator:
             box_x, box_y, box_z = self.box_size
         
         config_content = f"""# AutoDock Vina 설정 파일
-# Ligand 기반으로 자동 생성됨
 
 center_x = {self.center[0]:.3f}
 center_y = {self.center[1]:.3f}
