@@ -25,7 +25,7 @@ def p2rank_res_to_pdb(pred_csv="./1a30_protein.pdb_predictions.csv", src_pdb="1a
             for res_id in residue_ids:
                 res, r_id = res_id.split("_")
                 
-                if l[21] == res and int(l[22:26]) == int(r_id):
+                if l[21] == res and l[22:27].strip() == r_id.strip():
                     poc_res_ls.append(l)   
 
     # export
@@ -66,5 +66,4 @@ def p2rank_atom_to_pdb(pred_csv="./1a30_protein.pdb_predictions.csv", src_pdb="1
     return 0
 
 if __name__ == "__main__":
-    p2rank_res_to_pdb()
-    pass
+    p2rank_res_to_pdb("1bcu_protein.pdb_predictions.csv", "1bcu_protein.pdb", "./p2rank_pocket")
