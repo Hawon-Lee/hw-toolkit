@@ -18,7 +18,7 @@ def parse_arguments():
         help='단백질 PDB 파일 경로'
         )
     parser.add_argument(
-        '--out', '-o',
+        '--out_dir', '-o',
         type=str,
         required=True,
         help='결과물 파일을 저장할 디렉토리 경로'
@@ -134,11 +134,11 @@ def get_ligand_info(pdb_path, lig_name, chain2parse):
 
     return ligand_center, sdf_text
 
-def protein_preparation(args):
-    basename = os.path.basename(args.receptor).replace(".pdb", "")
+def protein_preparation(receptor, ligand_out=None, autobox_path=None, autobox_method=None, autobox_size=None, out_dir=None):
+    basename = os.path.basename(receptor).replace(".pdb", "")
     BUFFERS = ['GOL', 'PEG', 'EDO', 'SO4', 'BIS']
     
-    with open(args.receptor, 'r') as fp:
+    with open(receptor, 'r') as fp:
         pdb_raw = fp.read().splitlines()
         
     # get hetatm name for binding box setting
@@ -161,24 +161,24 @@ def protein_preparation(args):
         fp.write(prot_text)
     
     box_resname, box_chain = select_with_inquirer(hetatms)
-    ligand_center, ligand_sdf = get_ligand_info(args.receptor, box_resname, box_chain)
+    ligand_center, ligand_sdf = get_ligand_info(receptor, box_resname, box_chain)
 
     if ligand_center is None:
         print(f"Error: Ligand '{box_resname}' with chain '{box_chain}' not found.")
         os.remove(f"temp_{identifier}.pdb")
         return
     
-    if args.ligand_out and ligand_sdf:
-        with open(args.ligand_out, 'w') as f:
+    if ligand_out and ligand_sdf:
+        with open(ligand_out, 'w') as f:
             f.write(ligand_sdf)
-        print(f"Ligand conformation saved to {args.ligand_out}")
+        print(f"Ligand conformation saved to {ligand_out}")
 
-    if args.autobox_path:
-        os.makedirs(args.autobox_path, exist_ok=True)
-        config_path = os.path.join(args.autobox_path, f"{basename}_config.txt")
+    if autobox_path:
+        os.makedirs(autobox_path, exist_ok=True)
+        config_path = os.path.join(autobox_path, f"{basename}_config.txt")
         
         # 'fixed' 방식 (기존 방식)
-        if args.autobox_method == 'fixed':
+        if autobox_method == 'fixed':
             if ligand_center is None:
                 print(f"Error: Ligand center could not be determined. Cannot generate config file.")
             else:
@@ -187,13 +187,13 @@ def protein_preparation(args):
 center_y = {ligand_center[1]}
 center_z = {ligand_center[2]}
 
-size_x = {args.autobox_size}
-size_y = {args.autobox_size}
-size_z = {args.autobox_size}''')
+size_x = {autobox_size}
+size_y = {autobox_size}
+size_z = {autobox_size}''')
                 print(f"Box config file was successfully generated at {config_path}")
         
         # 'optimal' 방식 (box_calculator 사용)
-        elif args.autobox_method == 'optimal':
+        elif autobox_method == 'optimal':
             if not ligand_sdf:
                 print("Error: Could not generate SDF for ligand, cannot calculate optimal box size.")
             else:
@@ -225,8 +225,8 @@ size_z = {args.autobox_size}''')
         raise FileNotFoundError("prepare_receptor4.py를 찾을 수 없습니다. PATH에 AutoDockTools가 설치되어 있는지 확인하세요.")
     
     # 출력 디렉토리 생성
-    os.makedirs(args.out, exist_ok=True)
-    output_pdbqt_path = os.path.join(args.out, f"{basename}.pdbqt")
+    os.makedirs(out_dir, exist_ok=True)
+    output_pdbqt_path = os.path.join(out_dir, f"{basename}.pdbqt")
 
     # command에서 prepare_receptor4.py를 전체 경로로 교체
     command = f"python2 {prepare_receptor4_path} -r temp_{identifier}.pdb \
@@ -242,4 +242,8 @@ size_z = {args.autobox_size}''')
             
 
 if __name__ == '__main__':
-        protein_preparation(parse_arguments())
+    args = parse_arguments()
+    protein_preparation(
+        args.receptor,
+        args.out_dir
+        )

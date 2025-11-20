@@ -25,7 +25,7 @@ def p2rank_res_to_pdb(pred_csv="./1a30_protein.pdb_predictions.csv", src_pdb="1a
             for res_id in residue_ids:
                 res, r_id = res_id.split("_")
                 
-                if l[21] == res and l[22:27].strip() == r_id.strip():
+                if l[21] == res and l[22:27].strip() == r_id.strip(): # 22:27 -> for containing inserted chain identifier
                     poc_res_ls.append(l)   
 
     # export
