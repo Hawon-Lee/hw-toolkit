@@ -136,7 +136,8 @@ def get_ligand_info(pdb_path, lig_name, chain2parse):
 
 def protein_preparation(receptor, ligand_out=None, autobox_path=None, autobox_method=None, autobox_size=None, out_dir=None):
     basename = os.path.basename(receptor).replace(".pdb", "")
-    BUFFERS = ['GOL', 'PEG', 'EDO', 'SO4', 'BIS']
+    BUFFERS = ['GOL', 'PEG', 'EDO', 'SO4', 'BIS', 'HOH']
+    METALS = ['ZN', 'MG', 'MN', 'CA', 'FE', 'CO', 'NI', 'CU']
     
     with open(receptor, 'r') as fp:
         pdb_raw = fp.read().splitlines()
@@ -152,6 +153,11 @@ def protein_preparation(receptor, ligand_out=None, autobox_path=None, autobox_me
         
         elif line.startswith("ATOM  ") or line.startswith("TER   "):
             prot_lines.append(line)
+        
+        elif line.startswith("HETATM"):
+            res_name = line[17:20].strip()
+            if res_name in METALS:
+                prot_lines.append(line)
         
     prot_lines.append("END")
     
@@ -229,9 +235,9 @@ size_z = {autobox_size}''')
     output_pdbqt_path = os.path.join(out_dir, f"{basename}.pdbqt")
 
     # command에서 prepare_receptor4.py를 전체 경로로 교체
-    command = f"python2 {prepare_receptor4_path} -r temp_{identifier}.pdb \
+    command = f"python3 {prepare_receptor4_path} -r temp_{identifier}.pdb \
                 -A bonds_hydrogens \
-                -U nphs_lps_waters_nonstdres \
+                -U nphs_lps_waters \
                 -o {output_pdbqt_path}"
 
             
