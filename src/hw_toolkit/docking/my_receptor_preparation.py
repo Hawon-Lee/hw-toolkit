@@ -53,8 +53,8 @@ def parse_arguments():
     return args
 
 def select_with_inquirer(tuple_options):
-    # 표시용 문자열 생성
-    display_options = [f"resname '{tup[0]}' - chainID '{tup[1]}'" for tup in tuple_options]
+    # 표시용 문자열 생성 (resname, chainID, resID 포함)
+    display_options = [f"resname '{tup[0]}' - chainID '{tup[1]}' - resID {tup[2]}" for tup in tuple_options]
     
     # 표시할 옵션과 원래 튜플을 매핑
     option_map = {display_options[i]: tuple_options[i] for i in range(len(tuple_options))}
@@ -73,19 +73,22 @@ def select_with_inquirer(tuple_options):
     
     return selected_tuple
 
-def get_ligand_info(pdb_path, lig_name, chain2parse):
+def get_ligand_info(pdb_path, lig_name, chain2parse, res_id):
     with open(pdb_path, 'r') as f:
         pdb_lines = f.readlines()
 
     ligand_hetatm_lines = []
     ligand_atom_serials = set()
 
-    # Extract HETATM lines for the specific ligand
+    # Extract HETATM lines for the specific ligand (resname, chain, resID 모두 일치해야 함)
     for l in pdb_lines:
         if l.startswith('HETATM') and l[17:20].strip() == lig_name.strip():
             if l[21] == chain2parse:
-                ligand_hetatm_lines.append(l)
-                ligand_atom_serials.add(int(l[6:11]))
+                # residue sequence number 확인 (columns 23-26, 0-indexed: 22:26)
+                line_res_id = int(l[22:26].strip())
+                if line_res_id == res_id:
+                    ligand_hetatm_lines.append(l)
+                    ligand_atom_serials.add(int(l[6:11]))
 
     if not ligand_hetatm_lines:
         return None, None
@@ -109,7 +112,7 @@ def get_ligand_info(pdb_path, lig_name, chain2parse):
     mol = Chem.MolFromPDBBlock(ligand_pdb_block, removeHs=False, sanitize=True)
 
     if mol is None:
-        print(f"Warning: RDKit could not process the ligand {lig_name} (chain {chain2parse}).")
+        print(f"Warning: RDKit could not process the ligand {lig_name} (chain {chain2parse}, resID {res_id}).")
         # Fallback to calculate center from coordinates
         coords = []
         for l in ligand_hetatm_lines:
@@ -124,7 +127,7 @@ def get_ligand_info(pdb_path, lig_name, chain2parse):
         positions = conformer.GetPositions()
         ligand_center = positions.mean(axis=0)
     except Exception as e:
-        print(f"Could not calculate ligand center for {lig_name} (chain {chain2parse}): {e}")
+        print(f"Could not calculate ligand center for {lig_name} (chain {chain2parse}, resID {res_id}): {e}")
         return None, None
 
 
@@ -147,9 +150,13 @@ def protein_preparation(receptor, ligand_out=None, autobox_path=None, autobox_me
     prot_lines = []
     for line in pdb_raw:
         if line.startswith("HET   "):
-            lig_name, lig_chain_id = line[7:10], line[12]
+            # HET 레코드 포맷: columns 8-10 (resname), 13 (chainID), 14-17 (seqNum)
+            # 0-indexed: 7:10 (resname), 12 (chainID), 13:17 (seqNum)
+            lig_name = line[7:10]
+            lig_chain_id = line[12]
+            lig_res_id = int(line[13:17].strip())
             if lig_name not in BUFFERS:
-                hetatms.append((lig_name, lig_chain_id))
+                hetatms.append((lig_name, lig_chain_id, lig_res_id))
         
         elif line.startswith("ATOM  ") or line.startswith("TER   "):
             prot_lines.append(line)
@@ -166,11 +173,11 @@ def protein_preparation(receptor, ligand_out=None, autobox_path=None, autobox_me
         prot_text = "\n".join(prot_lines)
         fp.write(prot_text)
     
-    box_resname, box_chain = select_with_inquirer(hetatms)
-    ligand_center, ligand_sdf = get_ligand_info(receptor, box_resname, box_chain)
+    box_resname, box_chain, box_res_id = select_with_inquirer(hetatms)
+    ligand_center, ligand_sdf = get_ligand_info(receptor, box_resname, box_chain, box_res_id)
 
     if ligand_center is None:
-        print(f"Error: Ligand '{box_resname}' with chain '{box_chain}' not found.")
+        print(f"Error: Ligand '{box_resname}' with chain '{box_chain}' and resID {box_res_id} not found.")
         os.remove(f"temp_{identifier}.pdb")
         return
     
