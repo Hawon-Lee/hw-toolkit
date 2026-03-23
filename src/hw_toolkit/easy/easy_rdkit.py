@@ -1,4 +1,18 @@
 from rdkit import Chem
+from rdkit.Chem import inchi
+
+def are_same_molecule_inchi(smiles1, smiles2):
+    mol1 = Chem.MolFromSmiles(smiles1)
+    mol2 = Chem.MolFromSmiles(smiles2)
+    
+    if mol1 is None or mol2 is None:
+        return False
+    
+    # InChI Key로 비교 (입체화학 포함)
+    inchi_key1 = inchi.MolToInchiKey(mol1)
+    inchi_key2 = inchi.MolToInchiKey(mol2)
+    
+    return inchi_key1 == inchi_key2
 
 def create_mol_from_smiles(smiles: str, retry_with_sanitize: bool = False) -> Chem.Mol:
     '''

@@ -21,7 +21,10 @@ dependencies = [
     "pandas",
     "rdkit",
     "inquirer",
-    "tqdm"
+    "tqdm",
+    "scipy",
+    "pdb-tools",
+    "meeko"
 ]
 
 [project.urls]
