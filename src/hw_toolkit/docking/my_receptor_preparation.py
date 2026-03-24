@@ -1,9 +1,9 @@
 import os
+import tempfile
 import numpy as np
 import argparse
 import inquirer
 import subprocess
-import random
 from rdkit import Chem
 
 from .box_calculator import DockingBoxCalculator
@@ -167,20 +167,15 @@ def protein_preparation(receptor, ligand_out=None, autobox_path=None, autobox_me
                 prot_lines.append(line)
         
     prot_lines.append("END")
-    
-    identifier = random.randint(0, 999999)
-    with open(f"temp_{identifier}.pdb", 'w') as fp:
-        prot_text = "\n".join(prot_lines)
-        fp.write(prot_text)
-    
+    prot_text = "\n".join(prot_lines)
+
     box_resname, box_chain, box_res_id = select_with_inquirer(hetatms)
     ligand_center, ligand_sdf = get_ligand_info(receptor, box_resname, box_chain, box_res_id)
 
     if ligand_center is None:
         print(f"Error: Ligand '{box_resname}' with chain '{box_chain}' and resID {box_res_id} not found.")
-        os.remove(f"temp_{identifier}.pdb")
         return
-    
+
     if ligand_out and ligand_sdf:
         with open(ligand_out, 'w') as f:
             f.write(ligand_sdf)
@@ -189,7 +184,7 @@ def protein_preparation(receptor, ligand_out=None, autobox_path=None, autobox_me
     if autobox_path:
         os.makedirs(autobox_path, exist_ok=True)
         config_path = os.path.join(autobox_path, f"{basename}_config.txt")
-        
+
         # 'fixed' 방식 (기존 방식)
         if autobox_method == 'fixed':
             if ligand_center is None:
@@ -204,53 +199,54 @@ size_x = {autobox_size}
 size_y = {autobox_size}
 size_z = {autobox_size}''')
                 print(f"Box config file was successfully generated at {config_path}")
-        
+
         # 'optimal' 방식 (box_calculator 사용)
         elif autobox_method == 'optimal':
             if not ligand_sdf:
                 print("Error: Could not generate SDF for ligand, cannot calculate optimal box size.")
             else:
                 calculator = DockingBoxCalculator()
-                
-                temp_ligand_path = f"temp_ligand_{identifier}.sdf"
-                with open(temp_ligand_path, 'w') as f:
-                    f.write(ligand_sdf)
-                
-                if calculator.load_ligand_file(temp_ligand_path):
-                    try:
-                        calculator.generate_autodock_config(
-                            output_file=config_path,
-                            use_optimal_size=True
-                        )
-                        print(f"Optimal box config file was successfully generated at {config_path}")
-                    except ValueError as e:
-                        print(f"Error generating optimal config: {e}")
-                else:
-                    print(f"Error: Could not process ligand with BoxCalculator from {temp_ligand_path}")
-                
-                os.remove(temp_ligand_path)
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.sdf', delete=False) as tmp_lig:
+                    tmp_lig.write(ligand_sdf)
+                    tmp_ligand_path = tmp_lig.name
+                try:
+                    if calculator.load_ligand_file(tmp_ligand_path):
+                        try:
+                            calculator.generate_autodock_config(
+                                output_file=config_path,
+                                use_optimal_size=True
+                            )
+                            print(f"Optimal box config file was successfully generated at {config_path}")
+                        except ValueError as e:
+                            print(f"Error generating optimal config: {e}")
+                    else:
+                        print(f"Error: Could not process ligand with BoxCalculator from {tmp_ligand_path}")
+                finally:
+                    os.remove(tmp_ligand_path)
 
     # prepare_receptor4.py의 경로를 찾기
     import shutil
     prepare_receptor4_path = shutil.which('prepare_receptor4.py')
-    
+
     if prepare_receptor4_path is None:
         raise FileNotFoundError("prepare_receptor4.py를 찾을 수 없습니다. PATH에 AutoDockTools가 설치되어 있는지 확인하세요.")
-    
+
     # 출력 디렉토리 생성
     os.makedirs(out_dir, exist_ok=True)
     output_pdbqt_path = os.path.join(out_dir, f"{basename}.pdbqt")
 
-    # command에서 prepare_receptor4.py를 전체 경로로 교체
-    command = f"python3 {prepare_receptor4_path} -r temp_{identifier}.pdb \
-                -A bonds_hydrogens \
-                -U nphs_lps_waters \
-                -o {output_pdbqt_path}"
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.pdb', delete=False) as tmp_rec:
+        tmp_rec.write(prot_text)
+        tmp_rec_path = tmp_rec.name
+    try:
+        command = f"python3 {prepare_receptor4_path} -r {tmp_rec_path} \
+                    -A bonds_hydrogens \
+                    -U nphs_lps_waters \
+                    -o {output_pdbqt_path}"
+        subprocess.run(command.split())
+    finally:
+        os.remove(tmp_rec_path)
 
-            
-    subprocess.run(command.split())
-    
-    os.remove(f"temp_{identifier}.pdb")
     print(f"Successfully converted into pdbqt. Path: {output_pdbqt_path}")
             
 
